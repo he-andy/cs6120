@@ -42,7 +42,7 @@ def compute_stats(l):
     return mean, stddev, min(l), max(l)
     
 
-ivs = set(data[1] for data in data) - {'baseline'}
+ivs = sorted(list(set(data[1] for data in data) - {'baseline'}))
 for iv in ivs:
     scores = []
     for entry in entries.values():
