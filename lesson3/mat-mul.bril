@@ -1,5 +1,7 @@
-Args { dce: true }
-@rand(seq: ptr<int>, max: int): int {
+# Use a linear congruential generator to generate random numbers.
+# `seq` is the state of the random number generator.
+# Returns a value between 0 and max
+@rand(seq: ptr<int>, max: int) : int {
   a: int = const 25214903917;
   c: int = const 11;
   m: int = const 281474976710656;
@@ -15,7 +17,9 @@ Args { dce: true }
   val: int = sub next val;
   ret val;
 }
-@randarray(size: int, rng: ptr<int>): ptr<int> {
+
+# Generates a random array of length `size`
+@randarray(size: int, rng: ptr<int>) : ptr<int> {
   arr: ptr<int> = alloc size;
   i: int = const 0;
   max: int = const 1000;
@@ -33,6 +37,8 @@ Args { dce: true }
 .done:
   ret arr;
 }
+
+# Prints an array
 @printarray(size: int, arr: ptr<int>) {
   i: int = const 0;
   one: int = const 1;
@@ -49,6 +55,10 @@ Args { dce: true }
 .done:
   ret;
 }
+
+# Naive matrix muliplication algorithm
+# `arr1`, `arr2`, and `dest` are `size` x `size` matrices
+# `dest` will contain `arr1` x `arr2`
 @matmul(size: int, arr1: ptr<int>, arr2: ptr<int>, dest: ptr<int>) {
   one: int = const 1;
   row: int = const 0;
@@ -95,6 +105,8 @@ Args { dce: true }
 .row.done:
   ret;
 }
+
+# ARGS: 50 109658
 @main(size: int, seed: int) {
   one: int = const 1;
   rng: ptr<int> = alloc one;
@@ -113,4 +125,3 @@ Args { dce: true }
   free rng;
   ret;
 }
-
