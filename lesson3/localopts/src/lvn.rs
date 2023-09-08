@@ -125,7 +125,7 @@ struct LVNTable {
     //maps value to number
     value_num: HashMap<NumberedVal, u32>,
     //maps numbering to canonical name
-    num_canonical: HashMap<u32, String>,
+    num_canonical: HashMap<u32, Vec<String>>,
     //next number
     num: u32,
 }
@@ -146,7 +146,7 @@ impl LVNTable {
             None => {
                 self.num += 1;
                 self.var_num.insert(name.clone(), self.num);
-                self.num_canonical.insert(self.num, name.clone());
+                self.num_canonical.insert(self.num, vec![name.clone()]);
                 self.num
             }
         }
@@ -157,17 +157,43 @@ impl LVNTable {
         self.num += 1;
         self.value_num.insert(exp.clone(), self.num);
         self.var_num.insert(canonical_name.clone(), self.num);
-        self.num_canonical.insert(self.num, canonical_name.clone());
+        if self.num_canonical.contains_key(&self.num) {
+            self.num_canonical
+                .get_mut(&self.num)
+                .unwrap()
+                .push(canonical_name.clone());
+        } else {
+            self.num_canonical
+                .insert(self.num, vec![canonical_name.clone()]);
+        }
     }
 
     ///binds variable to a table entry
     fn bind_var_to_num(&mut self, canonical_name: &String, num: u32) {
         self.var_num.insert(canonical_name.clone(), num);
+        if self.num_canonical.contains_key(&num) {
+            self.num_canonical
+                .get_mut(&num)
+                .unwrap()
+                .push(canonical_name.clone());
+        } else {
+            self.num_canonical.insert(num, vec![canonical_name.clone()]);
+        }
     }
 
+    fn update_clobbers(&mut self, canonical_name: &String) {
+        self.num_canonical.values_mut().for_each(|x| {
+            if x.contains(canonical_name) {
+                x.retain(|y| y != canonical_name);
+            }
+        });
+    }
     ///find the number assigned to [val], returns [None] if not previously computed
     fn find_val(&self, val: &NumberedVal) -> Option<u32> {
-        self.value_num.get(val).copied()
+        match val.0 {
+            OP::Value(ValueOps::Id) => val.1.first().copied(),
+            _ => self.value_num.get(val).copied(),
+        }
     }
 
     ///maps args to numbered form
@@ -239,7 +265,7 @@ impl LVNTable {
                         args: exp
                             .1
                             .iter()
-                            .map(|x| self.num_canonical.get(x).unwrap().clone())
+                            .map(|x| self.num_canonical.get(x).unwrap().first().unwrap().clone())
                             .collect(),
                         funcs,
                         labels,
@@ -247,6 +273,7 @@ impl LVNTable {
                         pos,
                         op_type: op_type.clone(),
                     };
+                    self.update_clobbers(&dest);
                     self.new_value(&exp, &dest);
                     res
                 }
@@ -255,13 +282,20 @@ impl LVNTable {
                     let num = table_entry.unwrap();
                     let res = Instruction::Value {
                         dest: dest.clone(),
-                        args: vec![self.num_canonical.get(&num).unwrap().clone()],
+                        args: vec![self
+                            .num_canonical
+                            .get(&num)
+                            .unwrap()
+                            .first()
+                            .unwrap()
+                            .clone()],
                         funcs,
                         labels,
                         op: ValueOps::Id,
                         pos,
                         op_type: op_type.clone(),
                     };
+                    self.update_clobbers(&dest);
                     self.bind_var_to_num(&dest, num);
                     res
                 }
@@ -276,7 +310,7 @@ impl LVNTable {
                 args: exp
                     .1
                     .iter()
-                    .map(|x| self.num_canonical.get(x).unwrap().clone())
+                    .map(|x| self.num_canonical.get(x).unwrap().first().unwrap().clone())
                     .collect(),
                 funcs,
                 labels,

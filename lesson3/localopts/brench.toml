@@ -7,7 +7,7 @@ pipeline = [
     "brili -p {args}",
 ]
 
-[runs.tdce]
+[runs.tdce_only]
 pipeline = [
     "bril2json",
     "target/release/localopts --dce",
@@ -15,10 +15,19 @@ pipeline = [
     "brili -p {args}",
 ]
 
-[runs.lvn]
+[runs.lvn_only]
+pipeline = [
+    "bril2json",
+    "target/release/localopts --lvn",
+    "bril2json",
+    "brili -p {args}",
+]
+
+[runs.lvn_tdce]
 pipeline = [
     "bril2json",
     "target/release/localopts --dce --lvn",
     "bril2json",
     "brili -p {args}",
 ]
+
