@@ -47,7 +47,7 @@
   a: int = id v11;
   v12: int = id b;
 
-  
+
   v13: int = id zero;
   v14: bool = eq v12 v13;
   cond_temp: bool = id v14;

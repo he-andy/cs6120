@@ -16,7 +16,7 @@ class Entry:
 
     def compute_score(self, test):
         baseline = self.tests['baseline']
-        return (self.tests[test] - baseline) / baseline
+        return  baseline / self.tests[test] 
 
 
 entries = {} 

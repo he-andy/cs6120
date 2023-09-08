@@ -15,14 +15,6 @@ pipeline = [
     "brili -p {args}",
 ]
 
-[runs.lvn_only]
-pipeline = [
-    "bril2json",
-    "target/release/localopts --lvn",
-    "bril2json",
-    "brili -p {args}",
-]
-
 [runs.lvn_tdce]
 pipeline = [
     "bril2json",
