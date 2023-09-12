@@ -18,7 +18,7 @@ fn lvn_pass(func: Function) -> Function {
     Function {
         instrs: basic_blocks(func.instrs)
             .into_iter()
-            .map(|x| lvn_bb_pass(x))
+            .map(|x| lvn_bb_pass(x.instructions))
             .flatten()
             .collect(),
         ..func
@@ -325,7 +325,7 @@ fn last_def(code: &Vec<Code>) -> Vec<bool> {
     let mut is_last_def = vec![false; code.len()];
     let mut defs = HashSet::new();
     for (idx, c) in code.iter().enumerate().rev() {
-        if let Some(var) = c.defs() {
+        if let Some(var) = c.defs().into_iter().next() {
             if !defs.contains(&var) {
                 is_last_def[idx] = true;
                 defs.insert(var);

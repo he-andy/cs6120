@@ -33,7 +33,7 @@ fn global_tdce_single_pass(code: Vec<Code>) -> (bool, Vec<Code>) {
         .iter()
         .enumerate()
         .map(|(i, x)| {
-            if let Some(def) = x.defs() {
+            if let Some(def) = x.defs().iter().next().cloned() {
                 if !used.contains(&def) {
                     Some(i)
                 } else {
@@ -75,7 +75,7 @@ fn local_tdce(func: Function) -> Function {
         .into_iter()
         .map(|block| {
             let mut changed = true;
-            let mut block = block;
+            let mut block = block.instructions;
             while changed {
                 (changed, block) = local_tdce_single_pass(block);
             }
@@ -99,7 +99,7 @@ fn local_tdce_single_pass(code: Vec<Code>) -> (bool, Vec<Code>) {
             last_def.remove(&r#use);
         }
         //check for defs
-        if let Some(def) = ins.defs() {
+        if let Some(def) = ins.defs().iter().next().cloned() {
             if let Some(idx) = last_def.insert(def, line) {
                 to_delete.insert(idx);
             }

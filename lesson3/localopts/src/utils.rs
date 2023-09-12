@@ -1,9 +1,12 @@
+use std::{collections::HashSet, hash::Hash};
+
 use bril_rs::{Code, Instruction};
 
 pub trait CFGNode {
-    fn uses(&self) -> Vec<String>;
-    fn defs(&self) -> Option<String>;
+    fn uses(&self) -> HashSet<String>;
+    fn defs(&self) -> HashSet<String>;
     fn control_flow(&self) -> CF;
+    fn is_label(&self) -> Option<String>;
 }
 
 pub enum CF {
@@ -15,19 +18,19 @@ pub enum CF {
 }
 
 impl CFGNode for Instruction {
-    fn uses(&self) -> Vec<String> {
+    fn uses(&self) -> HashSet<String> {
         match self {
-            Instruction::Constant { .. } => vec![],
-            Instruction::Value { args, .. } => args.clone(),
-            Instruction::Effect { args, .. } => args.clone(),
+            Instruction::Constant { .. } => HashSet::new(),
+            Instruction::Value { args, .. } => args.iter().cloned().collect(),
+            Instruction::Effect { args, .. } => args.iter().cloned().collect(),
         }
     }
 
-    fn defs(&self) -> Option<String> {
+    fn defs(&self) -> HashSet<String> {
         match self {
-            Instruction::Constant { dest, .. } => Some(dest.clone()),
-            Instruction::Value { dest, .. } => Some(dest.clone()),
-            Instruction::Effect { .. } => None,
+            Instruction::Constant { dest, .. } => HashSet::from([dest.clone()]),
+            Instruction::Value { dest, .. } => HashSet::from([dest.clone()]),
+            Instruction::Effect { .. } => HashSet::new(),
         }
     }
 
@@ -46,19 +49,22 @@ impl CFGNode for Instruction {
             },
         }
     }
+    fn is_label(&self) -> Option<String> {
+        None
+    }
 }
 
 impl CFGNode for Code {
-    fn uses(&self) -> Vec<String> {
+    fn uses(&self) -> HashSet<String> {
         match self {
-            Code::Label { .. } => vec![],
+            Code::Label { .. } => HashSet::new(),
             Code::Instruction(ins) => ins.uses(),
         }
     }
 
-    fn defs(&self) -> Option<String> {
+    fn defs(&self) -> HashSet<String> {
         match self {
-            Code::Label { .. } => None,
+            Code::Label { .. } => HashSet::new(),
             Code::Instruction(ins) => ins.defs(),
         }
     }
@@ -68,27 +74,101 @@ impl CFGNode for Code {
             Code::Instruction(ins) => ins.control_flow(),
         }
     }
+    fn is_label(&self) -> Option<String> {
+        match self {
+            Code::Label { label, .. } => Some(label.clone()),
+            _ => None,
+        }
+    }
 }
 
-pub fn basic_blocks<T: CFGNode>(stmts: Vec<T>) -> Vec<Vec<T>> {
+#[derive(Clone, Debug)]
+pub struct BasicBlock {
+    pub label: Option<String>,
+    pub instructions: Vec<Code>,
+    pub defs: HashSet<String>,
+    pub uses: HashSet<String>,
+}
+
+pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
     let mut blocks = Vec::new();
-    let mut block = Vec::new();
+    let mut block = BasicBlock {
+        label: None,
+        instructions: Vec::new(),
+        defs: HashSet::new(),
+        uses: HashSet::new(),
+    };
     for stmt in stmts {
         match stmt.control_flow() {
             CF::Jump(_) | CF::Branch(_, _) | CF::Return => {
-                block.push(stmt);
+                block.instructions.push(stmt);
+                block.uses = block
+                    .instructions
+                    .iter()
+                    .map(|x| x.uses())
+                    .flatten()
+                    .collect();
+                block.defs = block
+                    .instructions
+                    .iter()
+                    .map(|x| x.defs())
+                    .flatten()
+                    .collect();
                 blocks.push(block);
-                block = Vec::new();
+                block = BasicBlock {
+                    label: None,
+                    instructions: Vec::new(),
+                    defs: HashSet::new(),
+                    uses: HashSet::new(),
+                };
             }
             CF::Normal => {
-                block.push(stmt);
+                block.instructions.push(stmt);
             }
-            CF::Label(_) => {
+            CF::Label(label) => {
+                block.uses = block
+                    .instructions
+                    .iter()
+                    .map(|x| x.uses())
+                    .flatten()
+                    .collect();
+                block.defs = block
+                    .instructions
+                    .iter()
+                    .map(|x| x.defs())
+                    .flatten()
+                    .collect();
                 blocks.push(block);
-                block = vec![stmt]
+                block = BasicBlock {
+                    label: Some(label),
+                    instructions: vec![stmt],
+                    defs: HashSet::new(),
+                    uses: HashSet::new(),
+                }
             }
         }
     }
     blocks.push(block);
-    blocks.into_iter().filter(|x| !x.is_empty()).collect()
+    blocks
+        .into_iter()
+        .filter(|x| !x.instructions.is_empty())
+        .collect() //remove empty
+}
+
+impl CFGNode for BasicBlock {
+    fn uses(&self) -> HashSet<String> {
+        self.uses.clone().into_iter().collect()
+    }
+
+    fn defs(&self) -> HashSet<String> {
+        self.defs.clone().into_iter().collect()
+    }
+
+    fn control_flow(&self) -> CF {
+        self.instructions.last().unwrap().control_flow()
+    }
+
+    fn is_label(&self) -> Option<String> {
+        self.label.clone()
+    }
 }
