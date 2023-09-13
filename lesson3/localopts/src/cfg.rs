@@ -25,7 +25,7 @@ pub struct CFG<T: CFGNode + Clone + std::fmt::Debug> {
 }
 
 //TODO: reverse postorder shit?
-impl<T: CFGNode + Clone + std::fmt::Debug> CFG<T> {
+impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
     pub fn new(stmts: &Vec<T>) -> Self {
         let mut graph = Graph::<T, bool>::new();
 
@@ -213,7 +213,7 @@ impl<T: CFGNode + Clone + std::fmt::Debug> CFG<T> {
             };
         }
 
-        (out_n, in_n)
+        (in_n, out_n)
     }
 
     pub fn delete_unreachable(&mut self) {
@@ -237,7 +237,7 @@ impl<T: CFGNode + Clone + std::fmt::Debug> CFG<T> {
         }
     }
     pub fn debug_cfg(&self) {
-        println!("{:?}", Dot::with_config(&self.graph, &[]));
+        println!("{}", Dot::with_config(&self.graph, &[]));
     }
 
     pub fn debug_cfg_string(&self) -> String {

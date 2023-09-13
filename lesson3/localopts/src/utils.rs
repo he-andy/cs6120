@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash};
+use std::{collections::HashSet, hash::Hash, fmt::Display};
 
 use bril_rs::{Code, Instruction};
 
@@ -90,6 +90,17 @@ pub struct BasicBlock {
     pub uses: HashSet<String>,
 }
 
+impl BasicBlock {
+    pub fn uses_and_defs(&self) -> (HashSet<String>, HashSet<String>) {
+        let mut defs = HashSet::new();
+        let mut uses = HashSet::new();
+        for ins in &self.instructions {
+            uses.extend(ins.uses().difference(&defs).into_iter().cloned());
+            defs = defs.union(&ins.defs()).cloned().collect();
+        }
+        (uses, defs)
+    }
+}
 pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
     let mut blocks = Vec::new();
     let mut block = BasicBlock {
@@ -102,18 +113,8 @@ pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
         match stmt.control_flow() {
             CF::Jump(_) | CF::Branch(_, _) | CF::Return => {
                 block.instructions.push(stmt);
-                block.uses = block
-                    .instructions
-                    .iter()
-                    .map(|x| x.uses())
-                    .flatten()
-                    .collect();
-                block.defs = block
-                    .instructions
-                    .iter()
-                    .map(|x| x.defs())
-                    .flatten()
-                    .collect();
+                (block.uses, block.defs) = block.uses_and_defs();
+
                 blocks.push(block);
                 block = BasicBlock {
                     label: None,
@@ -126,18 +127,8 @@ pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
                 block.instructions.push(stmt);
             }
             CF::Label(label) => {
-                block.uses = block
-                    .instructions
-                    .iter()
-                    .map(|x| x.uses())
-                    .flatten()
-                    .collect();
-                block.defs = block
-                    .instructions
-                    .iter()
-                    .map(|x| x.defs())
-                    .flatten()
-                    .collect();
+                (block.uses, block.defs) = block.uses_and_defs();
+
                 blocks.push(block);
                 block = BasicBlock {
                     label: Some(label),
@@ -170,5 +161,14 @@ impl CFGNode for BasicBlock {
 
     fn is_label(&self) -> Option<String> {
         self.label.clone()
+    }
+}
+
+impl Display for BasicBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for ins in &self.instructions {
+            writeln!(f, "  {}", ins)?;
+        }
+        Ok(())
     }
 }
