@@ -1,6 +1,6 @@
+use bril_opts::{analysis, lvn, tdce};
 use bril_rs::load_program;
 use clap::Parser;
-use localopts::{analysis, cfg, lvn, tdce};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

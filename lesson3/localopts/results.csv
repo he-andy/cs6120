@@ -1,7 +1,0 @@
-benchmark,run,result
-cholesky,baseline,3761
-cholesky,tdce_only,3750
-cholesky,lvn_tdce,3045
-mat-inv,baseline,1044
-mat-inv,tdce_only,1044
-mat-inv,lvn_tdce,1038

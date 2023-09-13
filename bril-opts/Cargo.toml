@@ -1,5 +1,5 @@
 [package]
-name = "localopts"
+name = "bril-opts"
 version = "0.1.0"
 edition = "2021"
 
