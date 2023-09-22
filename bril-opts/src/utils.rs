@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash, fmt::Display};
+use std::{collections::HashSet, fmt::Display, hash::Hash};
 
 use bril_rs::{Code, Instruction};
 
@@ -100,6 +100,19 @@ impl BasicBlock {
         }
         (uses, defs)
     }
+
+    pub fn as_code_block(&self) -> Vec<Code> {
+        let mut code = Vec::new();
+        if let Some(label) = &self.label {
+            code.push(Code::Label {
+                label: label.clone(),
+                pos: None,
+            });
+        }
+
+        code.extend(self.instructions.clone());
+        code
+    }
 }
 pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
     let mut blocks = Vec::new();
@@ -128,11 +141,10 @@ pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
             }
             CF::Label(label) => {
                 (block.uses, block.defs) = block.uses_and_defs();
-
                 blocks.push(block);
                 block = BasicBlock {
                     label: Some(label),
-                    instructions: vec![stmt],
+                    instructions: vec![],
                     defs: HashSet::new(),
                     uses: HashSet::new(),
                 }
@@ -142,7 +154,7 @@ pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
     blocks.push(block);
     blocks
         .into_iter()
-        .filter(|x| !x.instructions.is_empty())
+        .filter(|x| !x.instructions.is_empty() | x.label.is_some())
         .collect() //remove empty
 }
 
@@ -156,7 +168,13 @@ impl CFGNode for BasicBlock {
     }
 
     fn control_flow(&self) -> CF {
-        self.instructions.last().unwrap().control_flow()
+        match self.instructions.last() {
+            Some(ins) => ins.control_flow(),
+            None => match &self.label {
+                Some(label) => CF::Label(label.clone()),
+                None => panic!(), //empty block
+            },
+        }
     }
 
     fn is_label(&self) -> Option<String> {
@@ -166,7 +184,7 @@ impl CFGNode for BasicBlock {
 
 impl Display for BasicBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for ins in &self.instructions {
+        for ins in &self.as_code_block() {
             writeln!(f, "  {}", ins)?;
         }
         Ok(())

@@ -29,7 +29,7 @@ fn live_var_transfer<T: CFGNode + Clone + Debug>(
     n.uses().union(&(l - &n.defs())).cloned().collect()
 }
 
-fn live_variable_analysis<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display>(
+pub fn live_variable_analysis<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display>(
     cfg: &CFG<T>,
 ) -> (Vec<HashSet<String>>, Vec<HashSet<String>>) {
     cfg.work_list(
@@ -38,11 +38,10 @@ fn live_variable_analysis<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Displ
         HashSet::<String>::new(),
         HashSet::<String>::new(),
         Dir::Backward,
-        true,
     )
 }
 
-pub fn live_variable_debug(prog: &Program, print_cfg: bool) {
+pub fn live_variable_debug(prog: &Program) {
     for func in &prog.functions {
         let code = basic_blocks(func.instrs.clone());
         let cfg = CFG::new(&code);
@@ -60,7 +59,5 @@ pub fn live_variable_debug(prog: &Program, print_cfg: bool) {
             println!("Exit: {:?}", exit[i]);
             println!("");
         }
-        println!("CFG:");
-        cfg.debug_cfg();
     }
 }

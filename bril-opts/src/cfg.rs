@@ -41,7 +41,10 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
                 None => None,
             })
             .collect::<HashMap<String, NodeIndex>>();
-
+        println!(
+            "{:?}",
+            stmts.into_iter().map(|x| x.is_label()).collect::<Vec<_>>()
+        );
         let mut defs = HashMap::<String, HashSet<NodeIndex>>::new();
         //Build edges + def table
         for node in graph.node_indices() {
@@ -59,6 +62,7 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
 
             match graph.node_weight(node).unwrap().control_flow() {
                 CF::Jump(label) => {
+                    println!("Jump to {}, label_map: {:?}", label, label_map);
                     let _ = graph.add_edge(node, *label_map.get(&label).unwrap(), false);
                 }
 
@@ -145,7 +149,6 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
         top: U,                                   //initial value of out[n]
         init: U,                                  //initial value of meet (usually empty set)
         direction: Dir, //direction of analysis, Dir::Forward or Dir::Backward
-        return_outs: bool,
     ) -> (Vec<U>, Vec<U>) {
         let mut work_list = VecDeque::new();
         let mut work_list_set = HashSet::new();
@@ -253,6 +256,20 @@ pub fn graph_from_bblocks(stmts: Vec<Code>) -> CFG<BasicBlock> {
 
 //trace finding
 impl CFG<BasicBlock> {
+    /// assigns labels to unlabelled blocks
+    pub fn label(&mut self) {
+        let start = self.graph.node_weight_mut(self.start()).unwrap();
+        if start.label.is_none() {
+            start.label = Some("_CFG_ENTRY".to_string());
+        }
+        for node in self.graph.node_indices() {
+            let bb = self.graph.node_weight_mut(node).unwrap();
+            if bb.label.is_none() {
+                bb.label = Some(format!("_CFG_L{}", node.index()));
+            }
+        }
+    }
+
     /// performs trace analysis and block reordering to get a vector of LIRNodes
     /// returns a vector of LIRNodes and the size of the resulting LIRTree
     pub fn flatten(&mut self) -> Vec<Code> {
@@ -305,8 +322,8 @@ impl CFG<BasicBlock> {
                 }
 
                 let mut conv_lir = extract_node_weights
-                    .into_iter()
-                    .map(|x| x.instructions)
+                    .iter()
+                    .map(|x| x.as_code_block())
                     .flatten()
                     .collect::<Vec<_>>();
 
