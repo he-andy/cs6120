@@ -18,10 +18,14 @@ Note: Timeout/Incorrect results will be reported but ignored in the final statis
 
 This implementation of CFG and Liveness Analysis uses the ```bril-rs``` library to parse bril JSON into a Rust representation. It then constructs a CFG using ```petgraph``` and performs liveness analysis using on the parsed program and prints the result to stdout. It can be used in tandem in the LVN/TDCE flags. 
 
+
 ### Usage 
 To view the liveness analysis of a program, use
-```cargo run --release -- <path-to-bril-json> [--lvn] [--tdce] --livevar``` 
+```cargo run --release -- <path-to-bril-json> [--lvn] [--tdce] [--dom] [--cfg] --liveness``` 
+
+To view the dominator analysis of a program, use
+```cargo run --release -- <path-to-bril-json> [--lvn] [--tdce] [--cfg] [--liveness ]--dom``` 
 
 To view the constructed CFG of a program (graphviz), use
-```cargo run --release -- <path-to-bril-json> [--lvn] [--tdce] --livevar --cfg```
+```cargo run --release -- <path-to-bril-json> [--lvn] [--tdce] [--dom] [--liveness] --cfg```
 
