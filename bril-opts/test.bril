@@ -1,0 +1,103 @@
+@abs(a: int): int {
+._CFG_ENTRY:
+._CFG_L1:
+  _phi_zero_0: int = const 0;
+  _phi_is_neg_0: bool = lt a _phi_zero_0;
+  br _phi_is_neg_0 .mul_neg_one .abs_res;
+.abs_res:
+  _phi_a_1: int = phi a _phi_a_0 ._CFG_L1 .mul_neg_one;
+  ret _phi_a_1;
+  jmp ._CFG_EXIT;
+.mul_neg_one:
+  _phi_neg_one_0: int = const -1;
+  _phi_a_0: int = mul a _phi_neg_one_0;
+  jmp .abs_res;
+._CFG_EXIT:
+}
+@mod(a: int, b: int): int {
+._CFG_ENTRY:
+._CFG_L1:
+  _phi_q_0: int = div a b;
+  _phi_aq_0: int = mul b _phi_q_0;
+  _phi_mod_0: int = sub a _phi_aq_0;
+  ret _phi_mod_0;
+  jmp ._CFG_EXIT;
+._CFG_EXIT:
+}
+@gcd(a: int, b: int): int {
+._CFG_ENTRY:
+.while.cond:
+  _phi_b_0: int = phi b _phi_b_1 ._CFG_ENTRY .while.body;
+  _phi_a_0: int = phi a _phi_a_1 ._CFG_ENTRY .while.body;
+  _phi_mod_0: int = call @mod _phi_a_0 _phi_b_0;
+  _phi_zero_0: int = const 0;
+  _phi_is_term_0: bool = eq _phi_mod_0 _phi_zero_0;
+  br _phi_is_term_0 .while.finish .while.body;
+.while.body:
+  _phi_a_1: int = id _phi_b_0;
+  _phi_b_1: int = id _phi_mod_0;
+  jmp .while.cond;
+.while.finish:
+  ret _phi_b_0;
+  jmp ._CFG_EXIT;
+._CFG_EXIT:
+}
+@lcm(a: int, b: int): int {
+._CFG_ENTRY:
+._CFG_L1:
+  _phi_zero_0: int = const 0;
+  _phi_a_is_zero_0: bool = eq a _phi_zero_0;
+  br _phi_a_is_zero_0 .check_b .is_good;
+.is_good:
+  _phi_ab_0: int = mul a b;
+  _phi_ab_1: int = call @abs _phi_ab_0;
+  _phi_gcdab_0: int = call @gcd a b;
+  _phi_lcm_0: int = div _phi_ab_1 _phi_gcdab_0;
+  ret _phi_lcm_0;
+  jmp ._CFG_EXIT;
+.check_b:
+  _phi_b_is_zero_0: bool = eq b _phi_zero_0;
+  br _phi_b_is_zero_0 .special_case .is_good;
+  jmp .is_good;
+.special_case:
+  ret _phi_zero_0;
+._CFG_EXIT:
+}
+@orders(u: int, n: int, use_lcm: bool) {
+._CFG_ENTRY:
+.for.cond:
+  _phi_u_0: int = phi u _phi_u_1 ._CFG_ENTRY .for.body.print;
+  _phi_is_term_0: bool = eq _phi_u_0 n;
+  br _phi_is_term_0 .for.finish .for.body;
+.for.body:
+  br use_lcm .lcm .gcd;
+.gcd:
+  _phi_gcdun_0: int = call @gcd _phi_u_0 n;
+  _phi_ordu_2: int = div n _phi_gcdun_0;
+.for.body.print:
+  _phi_ordu_0: int = phi _phi_ordu_1 _phi_ordu_2 .lcm .gcd;
+  print _phi_u_0 _phi_ordu_0;
+  _phi_one_0: int = const 1;
+  _phi_u_1: int = add _phi_u_0 _phi_one_0;
+  jmp .for.cond;
+.lcm:
+  _phi_lcm_0: int = call @lcm _phi_u_0 n;
+  _phi_ordu_1: int = div _phi_lcm_0 _phi_u_0;
+  jmp .for.body.print;
+.for.finish:
+  ret;
+  jmp ._CFG_EXIT;
+._CFG_EXIT:
+}
+@main(n: int, use_lcm: bool) {
+._CFG_ENTRY:
+._CFG_L1:
+  _phi_zero_0: int = const 0;
+  _phi_u_0: int = const 1;
+  _phi_n_0: int = call @abs n;
+  print _phi_zero_0 _phi_u_0;
+  call @orders _phi_u_0 _phi_n_0 use_lcm;
+  jmp ._CFG_EXIT;
+._CFG_EXIT:
+}
+

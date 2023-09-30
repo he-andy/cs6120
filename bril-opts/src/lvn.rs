@@ -5,7 +5,7 @@ use std::{
 
 use bril_rs::{Code, ConstOps, Function, Instruction, Literal, Program, Type, ValueOps};
 
-use crate::utils::{basic_blocks, CFGNode};
+use crate::utils::{code_to_bb, CFGNode};
 
 pub fn lvn(prog: Program) -> Program {
     Program {
@@ -16,7 +16,7 @@ pub fn lvn(prog: Program) -> Program {
 
 fn lvn_pass(func: Function) -> Function {
     Function {
-        instrs: basic_blocks(func.instrs)
+        instrs: code_to_bb(func.instrs)
             .into_iter()
             .map(|x| lvn_bb_pass(x.instructions))
             .flatten()

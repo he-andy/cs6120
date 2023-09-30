@@ -1,6 +1,9 @@
-use std::{collections::HashSet, fmt::Display, hash::Hash};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
-use bril_rs::{Code, Instruction};
+use bril_rs::{Argument, Code, Instruction};
 
 pub trait CFGNode {
     fn uses(&self) -> HashSet<String>;
@@ -85,9 +88,11 @@ impl CFGNode for Code {
 #[derive(Clone, Debug)]
 pub struct BasicBlock {
     pub label: Option<String>,
+    pub phi: HashMap<String, (String, Vec<(String, String)>)>,
     pub instructions: Vec<Code>,
     pub defs: HashSet<String>,
     pub uses: HashSet<String>,
+    pub vartype: HashMap<String, bril_rs::Type>,
 }
 
 impl BasicBlock {
@@ -109,34 +114,81 @@ impl BasicBlock {
                 pos: None,
             });
         }
-
+        for (canonical, (phi_dest, phi_source)) in self.phi.iter() {
+            let args = phi_source
+                .iter()
+                .map(|(var, _)| var.clone())
+                .collect::<Vec<_>>();
+            let labels = phi_source
+                .iter()
+                .map(|(_, label)| label.clone())
+                .collect::<Vec<_>>();
+            code.push(Code::Instruction(Instruction::Value {
+                args: args,
+                dest: phi_dest.clone(),
+                funcs: vec![],
+                labels: labels,
+                op: bril_rs::ValueOps::Phi,
+                pos: None,
+                op_type: self.vartype.get(canonical).unwrap().clone(),
+            }));
+        }
         code.extend(self.instructions.clone());
         code
     }
+
+    fn value_type(code: &Code) -> Option<(String, bril_rs::Type)> {
+        match code {
+            Code::Label { .. } => None,
+            Code::Instruction(ins) => match ins {
+                Instruction::Constant {
+                    dest, const_type, ..
+                } => Some((dest.clone(), const_type.clone())),
+                Instruction::Value { dest, op_type, .. } => Some((dest.clone(), op_type.clone())),
+                Instruction::Effect { .. } => None,
+            },
+        }
+    }
 }
-pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
+
+pub fn code_to_bb(stmts: Vec<Code>) -> Vec<BasicBlock> {
+    code_to_bb_extra_args(stmts, &vec![])
+}
+
+pub fn code_to_bb_extra_args(stmts: Vec<Code>, init_types: &Vec<Argument>) -> Vec<BasicBlock> {
+    let mut vartype = HashMap::new();
     let mut blocks = Vec::new();
     let mut block = BasicBlock {
         label: None,
+        phi: HashMap::new(),
         instructions: Vec::new(),
         defs: HashSet::new(),
         uses: HashSet::new(),
+        vartype: HashMap::new(),
     };
     for stmt in stmts {
         match stmt.control_flow() {
             CF::Jump(_) | CF::Branch(_, _) | CF::Return => {
+                if let Some((var, t)) = BasicBlock::value_type(&stmt) {
+                    vartype.insert(var, t);
+                }
                 block.instructions.push(stmt);
-                (block.uses, block.defs) = block.uses_and_defs();
 
+                (block.uses, block.defs) = block.uses_and_defs();
                 blocks.push(block);
                 block = BasicBlock {
                     label: None,
+                    phi: HashMap::new(),
                     instructions: Vec::new(),
                     defs: HashSet::new(),
                     uses: HashSet::new(),
+                    vartype: HashMap::new(),
                 };
             }
             CF::Normal => {
+                if let Some((var, t)) = BasicBlock::value_type(&stmt) {
+                    vartype.insert(var, t);
+                }
                 block.instructions.push(stmt);
             }
             CF::Label(label) => {
@@ -144,14 +196,24 @@ pub fn basic_blocks(stmts: Vec<Code>) -> Vec<BasicBlock> {
                 blocks.push(block);
                 block = BasicBlock {
                     label: Some(label),
+                    phi: HashMap::new(),
                     instructions: vec![],
                     defs: HashSet::new(),
                     uses: HashSet::new(),
+                    vartype: HashMap::new(),
                 }
             }
         }
     }
     blocks.push(block);
+
+    for arg in init_types {
+        vartype.insert(arg.name.clone(), arg.arg_type.clone());
+    }
+
+    for block in blocks.iter_mut() {
+        block.vartype = vartype.clone();
+    }
     blocks
         .into_iter()
         .filter(|x| !x.instructions.is_empty() | x.label.is_some())

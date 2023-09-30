@@ -1,11 +1,10 @@
 use bril_opts::analysis::live_variable_analysis;
-use bril_opts::cfg::CFG;
+use bril_opts::cfg::graph_from_function;
 use bril_opts::dominator::{dom_tree, dominator_analyis};
-use bril_opts::utils::basic_blocks;
+use bril_opts::ssa::to_ssa;
 use bril_opts::{analysis, lvn, tdce};
 use bril_rs::load_program;
 use clap::Parser;
-use petgraph::algo::dominators::DominatorsIter;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 
@@ -22,6 +21,8 @@ struct Args {
     dom: bool,
     #[arg(long)]
     cfg: bool,
+    #[arg(long)]
+    ssa: bool,
 }
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -40,8 +41,11 @@ fn main() {
     if args.liveness {
         analysis::live_variable_debug(&prog);
     }
-
-    if args.liveness || args.dom || args.cfg {
+    if args.ssa {
+        conv_to_ssa(&mut prog);
+        println!("{}", prog);
+    }
+    if args.liveness || args.dom || args.cfg || args.ssa {
         for func in &prog.functions {
             function_analysis(&args, func);
         }
@@ -50,10 +54,26 @@ fn main() {
     }
 }
 
+fn conv_to_ssa(prog: &mut bril_rs::Program) {
+    for func in &mut prog.functions {
+        let cfg = graph_from_function(func);
+        let mut ssa = to_ssa(&cfg);
+        //ssa.debug_cfg();
+        func.instrs = ssa.flatten();
+    }
+}
+
 fn function_analysis(args: &Args, func: &bril_rs::Function) {
-    let code = basic_blocks(func.instrs.clone());
-    let mut cfg = CFG::new(&code);
+    let mut cfg = graph_from_function(func);
     cfg.label();
+
+    // if args.ssa {
+    //     let mut ssa = to_ssa(&cfg);
+    //     if args.cfg {
+    //         ssa.debug_cfg();
+    //     }
+    // }
+
     let (entry, exit) = live_variable_analysis(&cfg);
     if args.cfg {
         println!("@{} CFG", func.name);

@@ -1,4 +1,4 @@
-use crate::utils::{basic_blocks, CFGNode};
+use crate::utils::{code_to_bb, CFGNode};
 use bril_rs::{Code, Function, Program};
 use std::collections::{HashMap, HashSet};
 
@@ -71,7 +71,7 @@ pub fn local_pass(prog: Program) -> Program {
 }
 
 fn local_tdce(func: Function) -> Function {
-    let local_dce_pass = basic_blocks(func.instrs)
+    let local_dce_pass = code_to_bb(func.instrs)
         .into_iter()
         .map(|block| {
             let mut changed = true;

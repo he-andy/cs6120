@@ -1,5 +1,5 @@
-use crate::cfg::{Dir, CFG};
-use crate::utils::{basic_blocks, CFGNode};
+use crate::cfg::{graph_from_function, Dir, CFG};
+use crate::utils::CFGNode;
 use bril_rs::Program;
 use petgraph::graph::NodeIndex;
 use std::collections::HashSet;
@@ -43,8 +43,7 @@ pub fn live_variable_analysis<T: CFGNode + Clone + std::fmt::Debug + std::fmt::D
 
 pub fn live_variable_debug(prog: &Program) {
     for func in &prog.functions {
-        let code = basic_blocks(func.instrs.clone());
-        let cfg = CFG::new(&code);
+        let cfg = graph_from_function(func);
         let (entry, exit) = live_variable_analysis(&cfg);
         println!("@{} Liveness Analysis", func.name);
         for i in 0..cfg.graph.node_count() {

@@ -1,27 +1,55 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use bril_rs::Argument;
 use bril_rs::Code;
+use bril_rs::Function;
 use petgraph::dot::Dot;
 use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::fmt::Write;
 
+use crate::utils::code_to_bb_extra_args;
 use crate::utils::BasicBlock;
-use crate::utils::{basic_blocks, CFGNode, CF};
+use crate::utils::{code_to_bb, CFGNode, CF};
 
 pub enum Dir {
     Forward,
     Backward,
 }
 
+#[deprecated]
+///generates a graph from bblocks, leaves args empty
+pub fn graph_from_bblocks(stmts: Vec<Code>) -> CFG<BasicBlock> {
+    CFG::new(&&code_to_bb(stmts))
+}
+
+//generates graph from function, fills args with function args
+pub fn graph_from_function(func: &Function) -> CFG<BasicBlock> {
+    let entry_bb = BasicBlock {
+        label: Some("_CFG_ENTRY".to_string()),
+        phi: HashMap::new(),
+        instructions: vec![],
+        defs: func.args.iter().map(|x| x.name.clone()).collect(),
+        uses: HashSet::new(),
+        vartype: HashMap::new(),
+    };
+
+    let mut bbs = code_to_bb_extra_args(func.instrs.clone(), &func.args);
+    bbs.insert(0, entry_bb);
+    let mut cfg = CFG::new(&bbs);
+    cfg.args = func.args.clone();
+    cfg.label();
+    cfg
+}
+
 #[derive(Debug, Clone)]
 pub struct CFG<T: CFGNode + Clone + std::fmt::Debug> {
     //cfg
     pub graph: Graph<T, bool>,
-
     //defpoints of each variable
     pub defs: HashMap<String, HashSet<NodeIndex>>,
+    pub args: Vec<Argument>,
 }
 
 //TODO: reverse postorder shit?
@@ -41,10 +69,10 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
                 None => None,
             })
             .collect::<HashMap<String, NodeIndex>>();
-        println!(
-            "{:?}",
-            stmts.into_iter().map(|x| x.is_label()).collect::<Vec<_>>()
-        );
+        // println!(
+        //     "{:?}",
+        //     stmts.into_iter().map(|x| x.is_label()).collect::<Vec<_>>()
+        // );
         let mut defs = HashMap::<String, HashSet<NodeIndex>>::new();
         //Build edges + def table
         for node in graph.node_indices() {
@@ -62,7 +90,6 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
 
             match graph.node_weight(node).unwrap().control_flow() {
                 CF::Jump(label) => {
-                    println!("Jump to {}, label_map: {:?}", label, label_map);
                     let _ = graph.add_edge(node, *label_map.get(&label).unwrap(), false);
                 }
 
@@ -87,12 +114,21 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
                 }
             }
         }
-        Self { graph, defs }
+
+        Self {
+            graph,
+            defs,
+            args: vec![],
+        }
     }
 
     /// returns entry point of CFG, assumes that the graph is nonempty
     pub fn start(&self) -> NodeIndex {
         self.graph.node_indices().next().unwrap()
+    }
+
+    pub fn exit(&self) -> NodeIndex {
+        self.graph.node_indices().last().unwrap()
     }
 
     pub fn recompute_defs(&mut self) {
@@ -250,10 +286,6 @@ impl<T: CFGNode + Clone + std::fmt::Debug + std::fmt::Display> CFG<T> {
     }
 }
 
-pub fn graph_from_bblocks(stmts: Vec<Code>) -> CFG<BasicBlock> {
-    CFG::new(&basic_blocks(stmts))
-}
-
 //trace finding
 impl CFG<BasicBlock> {
     /// assigns labels to unlabelled blocks
@@ -305,13 +337,29 @@ impl CFG<BasicBlock> {
         }
 
         let jumps_to_insert = Self::reorder_traces(&mut traces, &self.graph);
-        let code = traces
+        let mut code = traces
             .into_iter()
             .enumerate()
             .map(|(idx, x)| {
                 let mut extract_node_weights = x
                     .into_iter()
-                    .map(|x| self.graph.node_weight(x).unwrap().clone())
+                    .map(|x| {
+                        if x == self.exit() {
+                            let mut block = self.graph.node_weight(x).unwrap().clone();
+                            block.instructions.push(Code::Instruction(
+                                bril_rs::Instruction::Effect {
+                                    args: vec![],
+                                    funcs: vec![],
+                                    labels: vec!["_CFG_EXIT".into()],
+                                    op: bril_rs::EffectOps::Jump,
+                                    pos: None,
+                                },
+                            ));
+                            block
+                        } else {
+                            self.graph.node_weight(x).unwrap().clone()
+                        }
+                    })
                     .collect::<Vec<_>>();
 
                 for i in 0..extract_node_weights.len() - 1 {
@@ -353,8 +401,10 @@ impl CFG<BasicBlock> {
                     }
                 } else {
                     //if there is a jump, remove it (extraneous)
-                    if let CF::Jump(_) = conv_lir.last().unwrap().control_flow() {
-                        conv_lir.pop();
+                    if let CF::Jump(label) = conv_lir.last().unwrap().control_flow() {
+                        if label != "_CFG_EXIT" {
+                            conv_lir.pop();
+                        }
                     }
                 }
                 conv_lir
@@ -378,7 +428,10 @@ impl CFG<BasicBlock> {
         for edge in removed_edges {
             self.graph.add_edge(edge.0, edge.1, true);
         }
-
+        code.push(Code::Label {
+            label: "_CFG_EXIT".into(),
+            pos: None,
+        });
         code
     }
 

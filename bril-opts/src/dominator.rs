@@ -1,10 +1,11 @@
+use crate::dominator;
 use crate::utils::{BasicBlock, CFGNode};
 use petgraph::algo::dominators::Dominators;
 use petgraph::{graph::NodeIndex, Direction};
 use std::collections::HashSet;
 use std::vec;
 
-use crate::cfg::{self, CFG};
+use crate::cfg::CFG;
 
 /// Build dominance frontier
 fn compute_dominance_frontier<T: Clone + std::fmt::Debug + std::fmt::Display + CFGNode>(
@@ -50,15 +51,17 @@ fn compute_dominance_frontier<T: Clone + std::fmt::Debug + std::fmt::Display + C
             .collect::<HashSet<_>>();
 
         for idom in dominators.immediately_dominated_by(node) {
-            if idom.index() == node.index() {
-                continue;
+            if idom.index() != node.index() {
+                dom_frontier_recur(idom, dominators, dom_by, cfg, memo);
+                DF.extend(memo[idom.index()].as_ref().unwrap());
             }
-            dom_frontier_recur(idom, dominators, dom_by, cfg, memo);
-            DF.extend(memo[idom.index()].as_ref().unwrap());
         }
 
+        let mut dom_by_node = (&dom_by[node.index()]).clone();
+        dom_by_node.remove(&node);
+
         memo[node.index()] = Some(
-            DF.difference(&dom_by[node.index()])
+            DF.difference(&dom_by_node)
                 .map(|x| *x)
                 .collect::<HashSet<_>>(),
         );

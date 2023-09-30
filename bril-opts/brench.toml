@@ -1,5 +1,5 @@
 extract = 'total_dyn_inst: (\d+)'
-benchmarks = 'benchmarks/*/*.bril'
+benchmarks = 'benchmarks/core/*.bril'
 
 [runs.baseline]
 pipeline = [
@@ -22,4 +22,13 @@ pipeline = [
     "bril2json",
     "brili -p {args}",
 ]
+
+[runs.ssa]
+pipeline = [
+    "bril2json",
+    "target/release/bril-opts --ssa",
+    "bril2json",
+    "brili -p {args}",
+]
+
 

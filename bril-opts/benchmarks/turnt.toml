@@ -1,5 +1,5 @@
 [envs.brili]
-command = "bril2json < {filename} | ./localopts | bril2json | brili -p {args}"
+command = "bril2json < {filename} | ../target/release/bril-opts --ssa | bril2json | brili -p {args}"
 output.out = "-"
 output.prof = "2"
 
