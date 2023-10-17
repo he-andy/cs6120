@@ -1,4 +1,4 @@
-add_llvm_pass_plugin(LICMPass
+add_llvm_pass_plugin(LICM
     # List your source files here.
     LICM.cpp
 )
